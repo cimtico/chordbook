@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_NAME="${0##*/}"
+SCRIPT_DIR="${0%/*}"
+
+cd "${SCRIPT_DIR}" >/dev/null 2>&1 || exit 1
+
+# Switch context to the root of the app
+cd ../.. >/dev/null 2>&1 || exit 1
+
+if supervisorctl pid > /dev/null 2>&1 ; then
+    exit 0
+fi
+
+SUPERVISORD_PID="./tmp/supervisord.pid"
+if [ -f "$SUPERVISORD_PID" ] ; then
+    log "WARN" "Removing stale pidfile $SUPERVISORD_PID"
+    rm -f "$SUPERVISORD_PID"
+fi
+
+declare -A services=( ["postgres"]=5432 \
+                      ["puma"]=3000 )
+
+running=false
+for svc in "${!services[@]}"; do
+    if lsof -nP -iTCP:"${services[$svc]}" -sTCP:LISTEN &> /dev/null ; then
+        log "WARN" "Port ${services[$svc]} for $svc is in use"
+        running=true
+    fi
+done
+
+if [ "$running" == "true" ]; then
+    die "Service ports are in use, check for stale processes or docker"
+fi
+
+exec supervisord

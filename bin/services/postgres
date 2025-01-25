@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_NAME="${0##*/}"
+SCRIPT_DIR="${0%/*}"
+
+cd "${SCRIPT_DIR}" >/dev/null 2>&1 || exit 1
+
+# Switch context to the root of the app
+cd ../.. >/dev/null 2>&1 || exit 1
+
+PGUSER=${PGUSER:-postgres}
+PGDATA="$(pwd)/vendor/nix/postgres"
+export PGDATA
+
+echo "Running in $(pwd)"
+
+if [ ! -d "$PGDATA" ] ; then    
+    mkdir -p "$PGDATA"
+    echo "Initializing DB in $PGDATA"
+    initdb --auth=trust --encoding=UTF8 --no-locale -U "$PGUSER"
+
+    echo "Initializing config"
+    cat >> "$PGDATA/postgresql.conf" <<-EOF
+        listen_addresses = 'localhost'
+        unix_socket_directories = '$PGDATA'
+EOF
+fi
+
+echo "Starting DB"
+exec postgres

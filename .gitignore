@@ -36,3 +36,8 @@
 Brewfile.lock.json
 
 dev-dist
+
+.direnv
+.nix-gems
+vendor/bundle
+vendor/nix
