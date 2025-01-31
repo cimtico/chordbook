@@ -15,7 +15,7 @@ fi
 
 SUPERVISORD_PID="./tmp/supervisord.pid"
 if [ -f "$SUPERVISORD_PID" ] ; then
-    log "WARN" "Removing stale pidfile $SUPERVISORD_PID"
+    echo "WARN" "Removing stale pidfile $SUPERVISORD_PID"
     rm -f "$SUPERVISORD_PID"
 fi
 
@@ -25,13 +25,14 @@ declare -A services=( ["postgres"]=5432 \
 running=false
 for svc in "${!services[@]}"; do
     if lsof -nP -iTCP:"${services[$svc]}" -sTCP:LISTEN &> /dev/null ; then
-        log "WARN" "Port ${services[$svc]} for $svc is in use"
+        echo "WARN" "Port ${services[$svc]} for $svc is in use"
         running=true
     fi
 done
 
 if [ "$running" == "true" ]; then
-    die "Service ports are in use, check for stale processes or docker"
+    echo "Service ports are in use, check for stale processes or docker"
+else
+    exec supervisord
 fi
 
-exec supervisord

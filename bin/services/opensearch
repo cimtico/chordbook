@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Function to get the path to a Nix package
+get_nix_package_path() {
+  local package_name="$1"
+  nix-build '<nixpkgs>' -A "$package_name" --no-out-link
+}
+
+SCRIPT_NAME="${0##*/}"
+SCRIPT_DIR="$(cd "${0%/*}" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Switch context to the root of the app
+cd "$PROJECT_ROOT" >/dev/null 2>&1 || exit 1
+
+# ExecStartPre commands
+echo "Running OpenSearch ExecStartPre commands"
+# export OPENSEARCH_HOME="$PROJECT_ROOT/tmp/opensearch"
+export OPENSEARCH_PATH_CONF="$PROJECT_ROOT/tmp/opensearch-config"
+OPEN_SEARCH_DATA="$OPENSEARCH_PATH_CONF/data"
+OPEN_SEARCH_LOGS="$OPENSEARCH_PATH_CONF/logs"
+mkdir -p $OPENSEARCH_PATH_CONF
+mkdir -p $OPEN_SEARCH_DATA
+mkdir -p $OPEN_SEARCH_LOGS
+
+# startPreUnprivileged logic
+echo "Running OpenSearch startPreUnprivileged commands"
+
+# Get the path to the OpenSearch package
+opensearch_path=$(get_nix_package_path "opensearch")
+echo "OpenSearch package path: $opensearch_path"
+
+# Copy default configuration files if they do not exist
+if [ ! -f "$OPENSEARCH_PATH_CONF/opensearch.yml" ]; then
+  cp "$opensearch_path/config/opensearch.yml" "$OPENSEARCH_PATH_CONF/opensearch.yml"
+  sed -i "s#\#path.logs: /path/to/logs#path.logs: $OPEN_SEARCH_LOGS/#g" $OPENSEARCH_PATH_CONF/opensearch.yml
+  sed -i "s#\#path.data: /path/to/data#path.data: $OPEN_SEARCH_DATA/#g" $OPENSEARCH_PATH_CONF/opensearch.yml
+  echo "plugins.security.disabled: true" >> $OPENSEARCH_PATH_CONF/opensearch.yml
+fi
+
+if [ ! -f "$OPENSEARCH_PATH_CONF/jvm.options" ]; then
+  cp "$opensearch_path/config/jvm.options" "$OPENSEARCH_PATH_CONF/jvm.options"
+  sed -i "s#logs/gc.log#$OPEN_SEARCH_LOGS/gc.log#g" $OPENSEARCH_PATH_CONF/jvm.options
+fi
+
+if [ ! -f "$OPENSEARCH_PATH_CONF/log4j2.properties" ]; then
+  cp "$opensearch_path/config/log4j2.properties" "$OPENSEARCH_PATH_CONF/log4j2.properties"
+fi
+
+# Set environment variables
+#export OPENSEARCH_HOME="$PROJECT_ROOT/tmp/opensearch-data"
+export OPENSEARCH_JAVA_OPTS="-Xlog:disable"
+
+# Start OpenSearch
+echo "Starting OpenSearch"
+exec opensearch

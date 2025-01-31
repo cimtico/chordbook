@@ -1,4 +1,10 @@
 { pkgs ? import <nixpkgs> {} }:
+let
+    # customOpensearch = pkgs.opensearch.overrideAttrs (finalAttrs: previousAttrs: {
+    #   dataDir = "/var/lib/opensearch";
+    #   extraJavaOptions = "-Xlog:disable";
+    # });
+  in
   pkgs.mkShell {
     # nativeBuildInputs is usually what you want -- tools you need to run
     nativeBuildInputs = with pkgs; [
@@ -10,10 +16,10 @@
       buildPackages.nodejs
       buildPackages.yarn
       python3Packages.supervisor
-
+      #customOpensearch
       buildPackages.postgresql
+      opensearch
       ];
-    # buildInputs = [ pkg-config zlib openssl libxml2 libxslt libyaml icu libiconv libffi ];
 
     shellHook = ''
       export GEM_HOME=$PWD/.nix-gems
